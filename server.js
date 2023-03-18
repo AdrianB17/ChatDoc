@@ -26,10 +26,57 @@ app.post('/webhook', express.json(), function (req, res) {
       agent.add(`Welcome to my agent!`);
     }
 
+    // Get Hospitales
+    function getHospitales(agent){
+      try {
+        const especialidad = agent.parameters.airport;
+        agent.add(`Seleccionaste la especialidad ${especialidad}`);
+      } catch (error) {
+        agent.add('Ocurrio un error: getHospitales');
+      }
+    }
+
+    // Get Especialidad
     function getEspecialidades(agent){
-        const distrito = agent.parameters.location.city;
-        agent.add(`Seleccionaste el distrito ${distrito}`);
-        agent.add(`En que especialidad?`);
+        try {
+          const distrito = agent.parameters.location.city;
+          agent.add(`Seleccionaste el distrito ${distrito}`);
+
+          return db.collection('especialidades').get().then(function(documents){
+              if(documents === 0){
+                  agent.add("No existen especialidades");
+              }
+              else{
+                  let arr = [];
+                  documents.forEach(function(document){
+                      const dataOutput = document.data();
+                      const objOutput = [{
+                          "text": dataOutput.descripcion,
+                          "callback_data": "especialidad de " + dataOutput.descripcion
+                      }];
+                      arr.push(objOutput);
+                  });
+
+                  const payload = {
+                      "telegram": {
+                        "text": "¿Cuál es la especialidad a tratar?. Ingresa al Chatdoc si desconoces la especialidad a  tratar?",
+                        "reply_markup": {
+                          "inline_keyboard": arr
+                        }
+                      }
+                    }; 
+                    
+                    agent.add(
+                      new Payload(agent.TELEGRAM, payload, {rawPayload: true, sendAsMessage: true})
+                    );                        
+
+              }
+          }).catch(() => {
+              agent.add('hola, ocurrio un error');
+          });   
+        } catch (error) {
+          agent.add('Ocurrio un error: getEspecialidades');
+        }
     }
 
     // Get Distritos
@@ -75,7 +122,7 @@ app.post('/webhook', express.json(), function (req, res) {
                 agent.add('hola, ocurrio un error');
             });   
         } catch (error) {
-            
+            agent.add('Ocurrio un error: getDistritos');
         }
     }
     
@@ -213,6 +260,7 @@ app.post('/webhook', express.json(), function (req, res) {
     intentMap.set('WebHook', getCiudades);
     intentMap.set('WebHook - ciudad', getDistritos);
     intentMap.set('WebHook - distrito', getEspecialidades);
+    intentMap.set('WebHook - especialidad', getHospitales);
     agent.handleRequest(intentMap);
 });
 

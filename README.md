@@ -12,13 +12,13 @@ npm install
 2. Ejecutamos el archivo index.js
 
 ```bash
-node index.js 
+npm start 
 
 ```
 3. Instalamos ngrok, nos logueamos y en otra terminal ejecutamos
 
 ```bash
-ngrok http 3000
+ngrok http 8080
 
 ```
 4. Copiamos la url que nos da el ngrok y lo publicamos en el webhook del fulfillment
