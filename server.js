@@ -24,8 +24,8 @@ app.get('/', function (req, res) {
 
 app.post('/webhook', express.json(), function (req, res) {
     const agent = new WebhookClient({ request: req, response: res });
-    console.log('Dialogflow Request headers: ' + JSON.stringify(req.headers));
-    console.log('Dialogflow Request body: ' + JSON.stringify(req.body));
+    //console.log('Dialogflow Request headers: ' + JSON.stringify(req.headers));
+    console.log('Dialogflow Request body: ' + JSON.stringify(req.body.queryResult));
    
     function welcome(agent) {
       agent.add(`Welcome to my agent!`);
@@ -373,7 +373,7 @@ app.post('/webhook', express.json(), function (req, res) {
     intentMap.set('cita medica - ciudad', getDistritos);
     intentMap.set('cita medica - distrito', getEspecialidades);
     intentMap.set('cita medica - especialidad', getHospitales);
-    intentMap.set('cita medica - hospital', getCita);
+    //intentMap.set('cita medica - hospital', getCita);
     agent.handleRequest(intentMap);
 });
 
