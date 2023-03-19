@@ -10,7 +10,12 @@ const serviceAccount = require("./serviceAccountKey.json");
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
 });
-  
+
+let cID = "";
+let nom_ciudad = "";
+let nom_distrito = "";
+let nom_espec = "";
+let nom_hospital = "";
 const db = admin.firestore();
 
 app.get('/', function (req, res) {
@@ -26,25 +31,108 @@ app.post('/webhook', express.json(), function (req, res) {
       agent.add(`Welcome to my agent!`);
     }
 
+/*    // Get Fecha y Hora
+    function getFechayHora(agent){
+      try {
+          return db.collection('fechayhora').get().then(function(documents){
+              if(documents === 0){
+                  agent.add("No existen horarios disponibles.");
+              }
+              else{
+                  let response = '';
+                  let arr = [];
+                  documents.forEach(function(document){
+                      const dataOutput = document.data();
+                      const objOutput = [{
+                          "text": dataOutput.descripcion,
+                          "callback_data": "fecha y hora " + dataOutput.descripcion
+                      }];
+                      arr.push(objOutput);
+
+                      
+                      response += "\n"+ dataOutput.descripcion + "";
+                  });
+                  //agent.add(response);
+
+                  const payload = {
+                      "telegram": {
+                        "text": "Escoge los horarios disponibles",
+                        "reply_markup": {
+                          "inline_keyboard": arr
+                        }
+                      }
+                    }; 
+                    
+                    agent.add(
+                      new Payload(agent.TELEGRAM, payload, {rawPayload: true, sendAsMessage: true})
+                    );                        
+
+              }
+          }).catch(() => {
+              agent.add('hola, ocurrio un error');
+          });   
+      } catch (error) {
+          
+      }
+  }
+*/
+
     // Get Hospitales
     function getHospitales(agent){
       try {
-        const especialidad = agent.parameters.airport;
-        agent.add(`Seleccionaste la especialidad ${especialidad}`);
-      } catch (error) {
-        agent.add('Ocurrio un error: getHospitales');
-      }
+
+        const especialidad = agent.parameters.especialidades;
+        agent.add(`Seleccionaste la especialidad ${especialidad}.`);
+
+        return db.collection('hospitales').where("ciudad_id", "==", cID).get().then(function(documents){
+            if(documents === 0){
+                agent.add("No existen hospitales.");
+            }
+            else{
+                let response = '';
+                let arr = [];
+                documents.forEach(function(document){
+                    const dataOutput = document.data();
+                    const objOutput = [{
+                        "text": dataOutput.descripcion,
+                        "callback_data": "Hospital " + dataOutput.descripcion
+                    }];
+                    arr.push(objOutput);
+
+                    
+                    response += "\n"+ dataOutput.descripcion + "";
+                });
+
+                const payload = {
+                    "telegram": {
+                      "text": "¿En cúal hospital?",
+                      "reply_markup": {
+                        "inline_keyboard": arr
+                      }
+                    }
+                  }; 
+                  
+                  agent.add(
+                    new Payload(agent.TELEGRAM, payload, {rawPayload: true, sendAsMessage: true})
+                  );                        
+
+            }
+        }).catch(() => {
+            agent.add('hola, ocurrio un error');
+        });   
+    } catch (error) {      
+    }
     }
 
     // Get Especialidad
     function getEspecialidades(agent){
         try {
           const distrito = agent.parameters.location.city;
-          agent.add(`Seleccionaste el distrito ${distrito}`);
+          agent.add(`Seleccionaste el distrito ${distrito}.`);
 
           return db.collection('especialidades').get().then(function(documents){
               if(documents === 0){
-                  agent.add("No existen especialidades");
+                  agent.add("No existen especialidades.");
               }
               else{
                   let arr = [];
@@ -59,7 +147,7 @@ app.post('/webhook', express.json(), function (req, res) {
 
                   const payload = {
                       "telegram": {
-                        "text": "¿Cuál es la especialidad a tratar?. Ingresa al Chatdoc si desconoces la especialidad a  tratar?",
+                        "text": "¿Cuál es la especialidad a tratar?",
                         "reply_markup": {
                           "inline_keyboard": arr
                         }
@@ -75,63 +163,87 @@ app.post('/webhook', express.json(), function (req, res) {
               agent.add('hola, ocurrio un error');
           });   
         } catch (error) {
-          agent.add('Ocurrio un error: getEspecialidades');
+          agent.add('Ocurrió un error: getEspecialidades');
         }
     }
-
+    
     // Get Distritos
-    function getDistritos(agent){
-        try {
-            const ciudad = agent.parameters["geo-city"];
-            agent.add(`Seleccionaste una ciudad ${ciudad}`);
-            return db.collection('distritos').get().then(function(documents){
-                if(documents === 0){
-                    agent.add("No existen documentos");
+    function getDistritos(agent) {
+      try {
+        const ciudad = agent.parameters["geo-city"];
+        agent.add(`Seleccionaste la ciudad ${ciudad}.`);
+
+        // Buscar la ciudad en la colección "ciudades"
+        return db.collection("ciudades")
+          .where("descripcion", "==", ciudad)
+          .get()
+          .then(function(documents){
+            if(documents === 0){
+              agent.add(`No se encontró la ciudad ${ciudad}.`);
+              return;
+            }
+
+            // Obtener el identificador de la ciudad
+            let ciudadId = [];
+            documents.forEach((document) => {
+              const idRead = document.data().id;
+              ciudadId.push(idRead);
+            });
+
+            cID = ciudadId[0];
+
+            // Buscar los distritos en la colección "distritos" filtrando por la ciudad
+            return db.collection("distritos")
+              .where("ciudad_id", "==", ciudadId[0])
+              .get()
+              .then(function(documents){
+                if (documents === 0) {
+                  agent.add(`No se encontraron distritos para la ciudad ${ciudad}.`);
+                  return;
                 }
-                else{
-                    let response = '';
-                    let arr = [];
-                    documents.forEach(function(document){
-                        const dataOutput = document.data();
-                        const objOutput = [{
-                            "text": dataOutput.descripcion,
-                            "callback_data": "distrito de " + dataOutput.descripcion
-                        }];
-                        arr.push(objOutput);
 
-                        
-                        response += "\n"+ dataOutput.descripcion + "";
-                    });
-                    //agent.add(response);
+                let arr = [];
+                documents.forEach((document) => {
+                  const dataOutput = document.data();
+                  const objOutput = [{
+                    "text": dataOutput.descripcion,
+                    "callback_data": "distrito de " + dataOutput.descripcion
+                  }];
+                  arr.push(objOutput);
+                });
 
-                    const payload = {
-                        "telegram": {
-                          "text": "¿En qué distrito?",
-                          "reply_markup": {
-                            "inline_keyboard": arr
-                          }
-                        }
-                      }; 
-                      
-                      agent.add(
-                        new Payload(agent.TELEGRAM, payload, {rawPayload: true, sendAsMessage: true})
-                      );                        
+                const payload = {
+                  "telegram": {
+                    "text": "¿En qué distrito?",
+                    "reply_markup": {
+                      "inline_keyboard": arr
+                    }
+                  }
+                };
 
-                }
-            }).catch(() => {
-                agent.add('hola, ocurrio un error');
-            });   
-        } catch (error) {
-            agent.add('Ocurrio un error: getDistritos');
-        }
+                agent.add(
+                  new Payload(agent.TELEGRAM, payload, {
+                    rawPayload: true,
+                    sendAsMessage: true
+                  })
+                );
+              });
+          })
+          .catch(() => {
+            agent.add("Ocurrió un error al obtener los datos de la base de datos.");
+          });
+      } catch (error) {
+        agent.add("Ocurrió un error al procesar la solicitud.");
+      }
     }
+
     
     // Get Ciudades
     function getCiudades(agent){
         try {
             return db.collection('ciudades').get().then(function(documents){
                 if(documents === 0){
-                    agent.add("No existen documentos");
+                    agent.add("No existen documentos.");
                 }
                 else{
                     let response = '';
@@ -151,7 +263,7 @@ app.post('/webhook', express.json(), function (req, res) {
 
                     const payload = {
                         "telegram": {
-                          "text": "Hola, ¿en que ciudad te gustaría atenderte?",
+                          "text": "Puedo agendarte una cita médica. ¿En qué ciudad te gustaría atenderte?",
                           "reply_markup": {
                             "inline_keyboard": arr
                           }
@@ -174,7 +286,7 @@ app.post('/webhook', express.json(), function (req, res) {
     // Get Botones
     function getBotones(agent){
         try {
-            agent.add(new Text('Hola, en qué ciudad te gustaría atenderte'));  
+            agent.add(new Text('Hola, ¿en qué ciudad te gustaría atenderte?'));  
             agent.add(
                 new Image({
                   imageUrl: "https://via.placeholder.com/150"
@@ -225,7 +337,7 @@ app.post('/webhook', express.json(), function (req, res) {
               );              
 
         } catch (error) {
-            agent.add('Ocurrio un error');
+            agent.add('Ocurrió un error.');
         }      
     }
 
@@ -257,10 +369,11 @@ app.post('/webhook', express.json(), function (req, res) {
     let intentMap = new Map();
     intentMap.set('Default Welcome Intent', welcome);
     intentMap.set('Default Fallback Intent', fallback);
-    intentMap.set('WebHook', getCiudades);
-    intentMap.set('WebHook - ciudad', getDistritos);
-    intentMap.set('WebHook - distrito', getEspecialidades);
-    intentMap.set('WebHook - especialidad', getHospitales);
+    intentMap.set('cita medica', getCiudades);
+    intentMap.set('cita medica - ciudad', getDistritos);
+    intentMap.set('cita medica - distrito', getEspecialidades);
+    intentMap.set('cita medica - especialidad', getHospitales);
+    intentMap.set('cita medica - hospital', getCita);
     agent.handleRequest(intentMap);
 });
 
